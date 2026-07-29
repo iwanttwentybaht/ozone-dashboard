@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ozone Lab — แดชบอร์ดอุปกรณ์อบโอโซน</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#0F2B29;
+    --paper:#EEF3F1;
+    --panel:#FFFFFF;
+    --line:#D7E2DE;
+    --ozone:#2E7D6B;      /* หลักของแล็บ: เขียวอมฟ้าแบบสาหร่าย/โอโซน */
+    --ozone-deep:#1B4B41;
+    --amber:#C77B2E;      /* สถานะทำงาน/เตือน */
+    --mono:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
+    --serif:'Source Serif 4','Georgia',serif;
+    --sans:'Inter','Helvetica Neue',Arial,sans-serif;
+  }
+  @font-face{
+    font-family:'Source Serif 4';
+    src:local('Georgia');
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:40px 24px 80px;}
+
+  header.masthead{
+    border-bottom:2px solid var(--ink);
+    padding-bottom:18px;
+    margin-bottom:32px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ozone-deep);
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:clamp(26px,4vw,38px);
+    margin:0;
+    line-height:1.1;
+  }
+  .conn{
+    font-family:var(--mono);
+    font-size:12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:#5B6E68;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:#B7C4BF;display:inline-block;}
+  .dot.on{background:var(--ozone);box-shadow:0 0 0 3px rgba(46,125,107,.18);}
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:14px;
+    margin-bottom:28px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:18px 18px 16px;
+    position:relative;
+  }
+  .card .label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#6C7C77;
+    margin-bottom:10px;
+  }
+  .card .value{
+    font-family:var(--serif);
+    font-size:30px;
+    font-weight:600;
+    line-height:1;
+  }
+  .card .value small{
+    font-family:var(--sans);
+    font-size:14px;
+    font-weight:400;
+    color:#6C7C77;
+    margin-left:4px;
+  }
+  .card.phase .value{font-size:20px;}
+  .phase-pill{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:12px;
+    padding:3px 10px;
+    border-radius:20px;
+    background:#E4EEEA;
+    color:var(--ozone-deep);
+    border:1px solid var(--line);
+  }
+  .phase-pill.active{background:var(--amber);color:#fff;border-color:var(--amber);}
+
+  section.panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:24px;
+    margin-bottom:24px;
+  }
+  section.panel h2{
+    font-family:var(--serif);
+    font-size:18px;
+    margin:0 0 16px;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+  }
+
+  .control-row{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    align-items:flex-end;
+  }
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:#6C7C77;
+  }
+  select, input[type=number]{
+    font-family:var(--sans);
+    font-size:15px;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:2px;
+    background:var(--paper);
+    color:var(--ink);
+    min-width:160px;
+  }
+  button{
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    background:var(--ozone-deep);
+    color:#fff;
+    border:none;
+    padding:11px 20px;
+    border-radius:2px;
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  button:hover{background:var(--ozone);}
+  button:disabled{background:#B7C4BF;cursor:default;}
+  .save-msg{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--ozone-deep);
+    min-height:16px;
+  }
+
+  canvas{max-width:100%;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);}
+  th{
+    font-family:var(--mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:#6C7C77;
+    font-weight:500;
+  }
+  td{font-family:var(--mono);}
+  tr:last-child td{border-bottom:none;}
+
+  footer{
+    font-family:var(--mono);
+    font-size:11px;
+    color:#8B9A94;
+    text-align:center;
+    margin-top:40px;
+  }
+
+  @media (max-width:600px){
+    .card .value{font-size:24px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Ozone Treatment Prototype · Live Monitor</p>
+      <h1>แดชบอร์ดอุปกรณ์อบโอโซน</h1>
+    </div>
+    <div class="conn"><span class="dot" id="connDot"></span><span id="connText">กำลังเชื่อมต่อ...</span></div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">ความชื้นสัมพัทธ์เฉลี่ย</div>
+      <div class="value" id="valHumidity">—<small>%</small></div>
+    </div>
+    <div class="card phase">
+      <div class="label">สถานะระบบ</div>
+      <div class="value"><span class="phase-pill" id="valStatus">—</span></div>
+    </div>
+    <div class="card">
+      <div class="label">เวลาที่เหลือ</div>
+      <div class="value" id="valRemaining">—<small>วินาที</small></div>
+    </div>
+    <div class="card">
+      <div class="label">ระยะเวลาอบที่คำนวณได้</div>
+      <div class="value" id="valOtime">—<small>นาที</small></div>
+    </div>
+  </div>
+
+  <section class="panel">
+    <h2>เลือกวัสดุทดสอบ</h2>
+    <div class="control-row">
+      <div class="field">
+        <label for="materialSelect">ประเภทวัสดุ</label>
+        <select id="materialSelect">
+          <option value="Wood">ไม้ (Wood) — ตัวคูณ 1.0</option>
+          <option value="Leather">หนัง (Leather) — ตัวคูณ 0.8</option>
+          <option value="Cloth">ผ้า (Cloth) — ตัวคูณ 1.3</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="volumeInput">ปริมาตรกล่องจำลอง (ลบ.ม.)</label>
+        <input type="number" id="volumeInput" step="0.1" min="0.1" value="0.5">
+      </div>
+      <div class="field">
+        <button id="saveBtn">บันทึกไปยังอุปกรณ์</button>
+      </div>
+      <div class="field" style="flex:1">
+        <span class="save-msg" id="saveMsg"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>ค่าความชื้นย้อนหลัง (Log ล่าสุด)</h2>
+    <canvas id="humidityChart" height="90"></canvas>
+  </section>
+
+  <section class="panel">
+    <h2>ประวัติการทำงาน</h2>
+    <table>
+      <thead>
+        <tr><th>เวลา</th><th>วัสดุ</th><th>ความชื้น (%)</th><th>เวลาอบ (นาที)</th><th>สถานะ</th></tr>
+      </thead>
+      <tbody id="logTableBody">
+        <tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>Prakhonchaipittayakhom · Ozone Mold-Reduction Prototype · Firebase Realtime Database</footer>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------
+   1) ใส่ค่า Firebase config ของโปรเจกต์คุณตรงนี้
+      (หน้า Firebase Console -> Project settings -> General -> Your apps -> Web app)
+--------------------------------------------------------------------- */
+const firebaseConfig = {
+  apiKey: "ใส่ apiKey ของคุณ",
+  authDomain: "your-project-id.firebaseapp.com",
+  databaseURL: "https://your-project-id-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "your-project-id",
+  storageBucket: "your-project-id.appspot.com",
+  messagingSenderId: "ใส่ messagingSenderId ของคุณ",
+  appId: "ใส่ appId ของคุณ"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const PHASE_LABELS = {
+  PHASE2_MONITORING:   "เฝ้าระวังความชื้น",
+  PHASE4_RUNNING_START:"เริ่มอบโอโซน",
+  PHASE4_RUNNING:       "กำลังอบโอโซน",
+  PHASE5_PURGING:       "กำลังระบายอากาศ",
+  PHASE6_COMPLETED:     "เสร็จสิ้นภารกิจ",
+  PHASE6_COOLDOWN:      "พักระบบ (Cooldown)"
+};
+const ACTIVE_PHASES = ["PHASE4_RUNNING_START","PHASE4_RUNNING","PHASE5_PURGING"];
+
+const connDot = document.getElementById('connDot');
+const connText = document.getElementById('connText');
+
+// ---- แสดงสถานะการเชื่อมต่อ ----
+db.ref(".info/connected").on("value", snap => {
+  if (snap.val() === true) {
+    connDot.classList.add('on');
+    connText.textContent = "เชื่อมต่อ Firebase แล้ว";
+  } else {
+    connDot.classList.remove('on');
+    connText.textContent = "ขาดการเชื่อมต่อ";
+  }
+});
+
+// ---- อ่านค่า live แบบเรียลไทม์ ----
+db.ref("/ozone_device/live").on("value", snap => {
+  const d = snap.val() || {};
+  document.getElementById('valHumidity').innerHTML =
+    (d.humidity !== undefined ? Number(d.humidity).toFixed(1) : "—") + "<small>%</small>";
+  document.getElementById('valRemaining').innerHTML =
+    (d.remaining_sec !== undefined ? d.remaining_sec : "—") + "<small>วินาที</small>";
+  document.getElementById('valOtime').innerHTML =
+    (d.otime_min !== undefined ? Number(d.otime_min).toFixed(1) : "—") + "<small>นาที</small>";
+
+  const statusEl = document.getElementById('valStatus');
+  const label = PHASE_LABELS[d.status] || d.status || "—";
+  statusEl.textContent = label;
+  statusEl.classList.toggle('active', ACTIVE_PHASES.includes(d.status));
+});
+
+// ---- ตั้งค่า dropdown ให้ตรงกับค่าปัจจุบันบน Firebase ----
+db.ref("/ozone_device/material").once("value", snap => {
+  if (snap.exists()) document.getElementById('materialSelect').value = snap.val();
+});
+db.ref("/ozone_device/volume_m3").once("value", snap => {
+  if (snap.exists()) document.getElementById('volumeInput').value = snap.val();
+});
+
+// ---- บันทึกค่าที่เลือกกลับไปยังอุปกรณ์ ----
+document.getElementById('saveBtn').addEventListener('click', () => {
+  const material = document.getElementById('materialSelect').value;
+  const volume = parseFloat(document.getElementById('volumeInput').value) || 0.5;
+  const msg = document.getElementById('saveMsg');
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  msg.textContent = "กำลังบันทึก...";
+
+  db.ref("/ozone_device").update({ material, volume_m3: volume })
+    .then(() => {
+      msg.textContent = "บันทึกแล้ว — อุปกรณ์จะรับค่านี้ภายใน ~10 วินาที";
+      btn.disabled = false;
+    })
+    .catch(err => {
+      msg.textContent = "บันทึกไม่สำเร็จ: " + err.message;
+      btn.disabled = false;
+    });
+});
+
+// ---- กราฟความชื้นย้อนหลัง + ตารางประวัติ (จาก /ozone_device/logs) ----
+let chart;
+function renderChart(labels, values){
+  const ctx = document.getElementById('humidityChart').getContext('2d');
+  if (chart) { chart.data.labels = labels; chart.data.datasets[0].data = values; chart.update(); return; }
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'ความชื้นสัมพัทธ์ (%)',
+        data: values,
+        borderColor: '#2E7D6B',
+        backgroundColor: 'rgba(46,125,107,0.12)',
+        tension: 0.25,
+        fill: true,
+        pointRadius: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { suggestedMin: 30, suggestedMax: 100, ticks: { font: { family: 'monospace' } } },
+        x: { ticks: { font: { family: 'monospace' }, maxRotation: 0, autoSkip: true } }
+      }
+    }
+  });
+}
+
+db.ref("/ozone_device/logs").limitToLast(50).on("value", snap => {
+  const rows = [];
+  snap.forEach(child => {
+    const v = child.val();
+    rows.push(v);
+  });
+
+  // ตาราง (ใหม่สุดอยู่บน)
+  const tbody = document.getElementById('logTableBody');
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5">ยังไม่มีข้อมูล</td></tr>';
+  } else {
+    tbody.innerHTML = rows.slice().reverse().map(v => {
+      const t = v.ts ? new Date(v.ts).toLocaleString('th-TH') : '—';
+      return `<tr>
+        <td>${t}</td>
+        <td>${v.material ?? '—'}</td>
+        <td>${v.humidity !== undefined ? Number(v.humidity).toFixed(1) : '—'}</td>
+        <td>${v.otime_min !== undefined ? Number(v.otime_min).toFixed(1) : '—'}</td>
+        <td>${PHASE_LABELS[v.status] || v.status || '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // กราฟ (เรียงเก่า -> ใหม่)
+  const labels = rows.map(v => v.ts ? new Date(v.ts).toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit'}) : '');
+  const values = rows.map(v => v.humidity !== undefined ? Number(v.humidity) : null);
+  renderChart(labels, values);
+});
+</script>
+</body>
+</html>
