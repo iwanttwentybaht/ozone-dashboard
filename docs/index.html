@@ -38,7 +38,7 @@
   header.masthead{
     border-bottom:2px solid var(--ink);
     padding-bottom:18px;
-    margin-bottom:32px;
+    margin-bottom:24px;
     display:flex;
     justify-content:space-between;
     align-items:flex-end;
@@ -71,6 +71,47 @@
   .dot{width:8px;height:8px;border-radius:50%;background:#B7C4BF;display:inline-block;}
   .dot.on{background:var(--ozone);box-shadow:0 0 0 3px rgba(46,125,107,.18);}
 
+  /* ----- Tabs Navigation ----- */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .tab-btn {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 500;
+    color: #6C7C77;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .tab-btn:hover {
+    background: #E4EEEA;
+    color: var(--ozone-deep);
+  }
+  .tab-btn.active {
+    background: var(--panel);
+    color: var(--ozone-deep);
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  .tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .tab-content.active {
+    display: block;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ----- Grid & Cards ----- */
   .grid{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
@@ -133,6 +174,12 @@
     border-bottom:1px solid var(--line);
   }
 
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+
   .control-row{
     display:flex;
     gap:20px;
@@ -158,8 +205,7 @@
     min-width:100px; 
     max-width:100%;
   }
-  
-  /* แต่งปุ่ม Radio ให้ดูคลีน */
+
   .radio-label {
     font-family: var(--sans);
     font-size: 14px;
@@ -177,7 +223,7 @@
     height: 16px;
   }
 
-  button{
+  button.btn-primary{
     font-family:var(--mono);
     font-size:13px;
     letter-spacing:.04em;
@@ -190,8 +236,8 @@
     cursor:pointer;
     transition:background .15s ease;
   }
-  button:hover{background:var(--ozone);}
-  button:disabled{background:#B7C4BF;cursor:default;}
+  button.btn-primary:hover{background:var(--ozone);}
+  button.btn-primary:disabled{background:#B7C4BF;cursor:default;}
   .save-msg{
     font-family:var(--mono);
     font-size:12px;
@@ -224,6 +270,8 @@
 
   @media (max-width:600px){
     .card .value{font-size:24px;}
+    .tabs { flex-direction: column; }
+    .tab-btn { text-align: left; }
   }
 </style>
 </head>
@@ -238,118 +286,153 @@
     <div class="conn"><span class="dot" id="connDot"></span><span id="connText">กำลังเชื่อมต่อ...</span></div>
   </header>
 
-  <div class="grid">
-    <div class="card">
-      <div class="label">ความชื้นสัมพัทธ์เฉลี่ย</div>
-      <div class="value" id="valHumidity">—<small>%</small></div>
+  <!-- แท็บนำทาง -->
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-dashboard')">แดชบอร์ดหลัก (Dashboard)</button>
+    <button class="tab-btn" onclick="switchTab('tab-analytics')">วิเคราะห์ข้อมูล (Analytics)</button>
+  </nav>
+
+  <!-- ==========================================
+       TAB 1: แดชบอร์ดหลัก (Dashboard)
+  =========================================== -->
+  <div id="tab-dashboard" class="tab-content active">
+    
+    <div class="grid">
+      <div class="card">
+        <div class="label">ความชื้นสัมพัทธ์เฉลี่ย</div>
+        <div class="value" id="valHumidity">—<small>%</small></div>
+      </div>
+      <div class="card phase">
+        <div class="label">สถานะระบบ</div>
+        <div class="value"><span class="phase-pill" id="valStatus">—</span></div>
+      </div>
+      <div class="card">
+        <div class="label">เวลาที่เหลือ</div>
+        <div class="value" id="valRemaining">—<small>วินาที</small></div>
+      </div>
+      <div class="card">
+        <div class="label">ระยะเวลาอบที่คำนวณได้</div>
+        <div class="value" id="valOtime">—<small>นาที</small></div>
+      </div>
     </div>
-    <div class="card phase">
-      <div class="label">สถานะระบบ</div>
-      <div class="value"><span class="phase-pill" id="valStatus">—</span></div>
-    </div>
-    <div class="card">
-      <div class="label">เวลาที่เหลือ</div>
-      <div class="value" id="valRemaining">—<small>วินาที</small></div>
-    </div>
-    <div class="card">
-      <div class="label">ระยะเวลาอบที่คำนวณได้</div>
-      <div class="value" id="valOtime">—<small>นาที</small></div>
-    </div>
+
+    <section class="panel">
+      <h2>ตั้งค่าพารามิเตอร์การทดสอบ</h2>
+      <!-- 1. เลือกวัสดุ -->
+      <div class="control-row" style="margin-bottom: 20px;">
+        <div class="field">
+          <label for="materialSelect">ประเภทวัสดุ</label>
+          <select id="materialSelect" style="min-width: 220px;">
+            <option value="Wood">ไม้ (Wood)</option>
+            <option value="Plastic">พลาสติก (Plastic)</option>
+            <option value="Natural Leather">หนังแท้ (Natural Leather) (l)</option>
+            <option value="Synthetic Leather">หนังเทียม (Synthetic Leather)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 2. เลือกโหมดกรอกปริมาตร -->
+      <div class="field" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--line);">
+        <label>วิธีระบุปริมาตรจำลอง</label>
+        <div style="display: flex; gap: 24px; margin-top: 8px; flex-wrap: wrap;">
+          <label class="radio-label">
+            <input type="radio" name="volMode" value="calc" checked> 
+            คำนวณจาก กว้าง × ยาว × สูง
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="volMode" value="manual"> 
+            ระบุปริมาตร (ลบ.ม.) โดยตรง
+          </label>
+        </div>
+      </div>
+
+      <!-- 3A. กลุ่มคำนวณ กxยxส -->
+      <div class="control-row" id="calcModeGrp" style="margin-bottom: 24px;">
+        <div class="field">
+          <label for="widthInput">กว้าง (ม.)</label>
+          <input type="number" id="widthInput" step="0.01" min="0" value="1.0" style="width: 90px;">
+        </div>
+        <div class="field">
+          <label for="lengthInput">ยาว (ม.)</label>
+          <input type="number" id="lengthInput" step="0.01" min="0" value="1.0" style="width: 90px;">
+        </div>
+        <div class="field">
+          <label for="heightInput">สูง (ม.)</label>
+          <input type="number" id="heightInput" step="0.01" min="0" value="0.5" style="width: 90px;">
+        </div>
+        <div class="field">
+          <label>ปริมาตรสุทธิ (ลบ.ม.)</label>
+          <input type="text" id="calcVolumeDisplay" readonly style="background:#E4EEEA; color:var(--ozone-deep); font-weight:bold; cursor:not-allowed; width: 120px;">
+        </div>
+      </div>
+
+      <!-- 3B. กลุ่มกรอกเอง (ซ่อนไว้เป็นค่าเริ่มต้น) -->
+      <div class="control-row" id="manualModeGrp" style="display: none; margin-bottom: 24px;">
+        <div class="field">
+          <label for="manualVolumeInput">ปริมาตร (ลบ.ม.)</label>
+          <input type="number" id="manualVolumeInput" step="0.01" min="0" value="0.5" style="width: 140px; font-weight:bold; color:var(--ozone-deep);">
+        </div>
+      </div>
+
+      <!-- 4. ปุ่มบันทึก -->
+      <div class="control-row">
+        <div class="field">
+          <button id="saveBtn" class="btn-primary">บันทึกไปยังอุปกรณ์</button>
+        </div>
+        <div class="field" style="flex:1">
+          <span class="save-msg" id="saveMsg"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>ประวัติการทำงานล่าสุด</h2>
+      <table>
+        <thead>
+          <tr><th>เวลา</th><th>วัสดุ</th><th>ความชื้น (%)</th><th>เวลาอบ (นาที)</th><th>สถานะ</th></tr>
+        </thead>
+        <tbody id="logTableBody">
+          <tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
   </div>
 
-  <section class="panel">
-    <h2>ตั้งค่าพารามิเตอร์การทดสอบ</h2>
+
+  <!-- ==========================================
+       TAB 2: วิเคราะห์ข้อมูล (Analytics)
+  =========================================== -->
+  <div id="tab-analytics" class="tab-content">
     
-    <!-- 1. เลือกวัสดุ -->
-    <div class="control-row" style="margin-bottom: 20px;">
-      <div class="field">
-        <label for="materialSelect">ประเภทวัสดุ</label>
-        <select id="materialSelect" style="min-width: 220px;">
-          <option value="Wood">ไม้ (Wood)</option>
-          <option value="Plastic">พลาสติก (Plastic)</option>
-          <option value="Natural Leather">หนังแท้ (Natural Leather) (l)</option>
-          <option value="Synthetic Leather">หนังเทียม (Synthetic Leather)</option>
-        </select>
-      </div>
+    <section class="panel">
+      <h2>แนวโน้มความชื้นสัมพัทธ์ (Line Chart)</h2>
+      <canvas id="humidityChart" height="80"></canvas>
+    </section>
+
+    <div class="chart-grid">
+      <section class="panel">
+        <h2>ระยะเวลาการอบแต่ละรอบ (Bar Chart)</h2>
+        <canvas id="durationChart" height="220"></canvas>
+      </section>
+
+      <section class="panel">
+        <h2>สัดส่วนประเภทวัสดุ (Doughnut Chart)</h2>
+        <div style="position: relative; height: 220px; width: 100%;">
+          <canvas id="materialChart"></canvas>
+        </div>
+      </section>
     </div>
 
-    <!-- 2. เลือกโหมดกรอกปริมาตร -->
-    <div class="field" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--line);">
-      <label>วิธีระบุปริมาตรจำลอง</label>
-      <div style="display: flex; gap: 24px; margin-top: 8px; flex-wrap: wrap;">
-        <label class="radio-label">
-          <input type="radio" name="volMode" value="calc" checked> 
-          คำนวณจาก กว้าง × ยาว × สูง
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="volMode" value="manual"> 
-          ระบุปริมาตร (ลบ.ม.) โดยตรง
-        </label>
-      </div>
-    </div>
+  </div>
 
-    <!-- 3A. กลุ่มคำนวณ กxยxส (แสดงเป็นค่าเริ่มต้น) -->
-    <div class="control-row" id="calcModeGrp" style="margin-bottom: 24px;">
-      <div class="field">
-        <label for="widthInput">กว้าง (ม.)</label>
-        <input type="number" id="widthInput" step="0.01" min="0" value="1.0" style="width: 90px;">
-      </div>
-      <div class="field">
-        <label for="lengthInput">ยาว (ม.)</label>
-        <input type="number" id="lengthInput" step="0.01" min="0" value="1.0" style="width: 90px;">
-      </div>
-      <div class="field">
-        <label for="heightInput">สูง (ม.)</label>
-        <input type="number" id="heightInput" step="0.01" min="0" value="0.5" style="width: 90px;">
-      </div>
-      <div class="field">
-        <label>ปริมาตรสุทธิ (ลบ.ม.)</label>
-        <input type="text" id="calcVolumeDisplay" readonly style="background:#E4EEEA; color:var(--ozone-deep); font-weight:bold; cursor:not-allowed; width: 120px;">
-      </div>
-    </div>
-
-    <!-- 3B. กลุ่มกรอกเอง (ซ่อนไว้เป็นค่าเริ่มต้น) -->
-    <div class="control-row" id="manualModeGrp" style="display: none; margin-bottom: 24px;">
-      <div class="field">
-        <label for="manualVolumeInput">ปริมาตร (ลบ.ม.)</label>
-        <input type="number" id="manualVolumeInput" step="0.01" min="0" value="0.5" style="width: 140px; font-weight:bold; color:var(--ozone-deep);">
-      </div>
-    </div>
-
-    <!-- 4. ปุ่มบันทึก -->
-    <div class="control-row">
-      <div class="field">
-        <button id="saveBtn">บันทึกไปยังอุปกรณ์</button>
-      </div>
-      <div class="field" style="flex:1">
-        <span class="save-msg" id="saveMsg"></span>
-      </div>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>ค่าความชื้นย้อนหลัง (Log ล่าสุด)</h2>
-    <canvas id="humidityChart" height="90"></canvas>
-  </section>
-
-  <section class="panel">
-    <h2>ประวัติการทำงาน</h2>
-    <table>
-      <thead>
-        <tr><th>เวลา</th><th>วัสดุ</th><th>ความชื้น (%)</th><th>เวลาอบ (นาที)</th><th>สถานะ</th></tr>
-      </thead>
-      <tbody id="logTableBody">
-        <tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>
-      </tbody>
-    </table>
-  </section>
 
   <footer>Prakhonchaipittayakhom · Ozone Mold-Reduction Prototype · Firebase Realtime Database</footer>
 </div>
 
 <script>
 /* ---------------------------------------------------------------------
-   1) ใส่ค่า Firebase config ของโปรเจกต์คุณตรงนี้
+   1) Firebase Config
 --------------------------------------------------------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyCUHh9Th-fSyFw1yf5JGaKDa1xmI4rgdn4",
@@ -375,10 +458,20 @@ const PHASE_LABELS = {
 };
 const ACTIVE_PHASES = ["PHASE4_RUNNING_START","PHASE4_RUNNING","PHASE5_PURGING"];
 
-const connDot = document.getElementById('connDot');
-const connText = document.getElementById('connText');
+// ---- ระบบเปลี่ยนแท็บ (Tab Navigation) ----
+function switchTab(tabId) {
+  // ลบ class active ออกจากทุกปุ่มและเนื้อหา
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  // เพิ่ม class active ให้แท็บที่ถูกคลิก
+  document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
 
 // ---- แสดงสถานะการเชื่อมต่อ ----
+const connDot = document.getElementById('connDot');
+const connText = document.getElementById('connText');
 db.ref(".info/connected").on("value", snap => {
   if (snap.val() === true) {
     connDot.classList.add('on');
@@ -406,7 +499,7 @@ db.ref("/ozone_device/live").on("value", snap => {
 });
 
 
-// ---- ระบบสลับโหมดการกรอกปริมาตร (Radio Buttons) ----
+// ---- ระบบสลับโหมดการกรอกปริมาตร ----
 const radios = document.getElementsByName('volMode');
 const calcModeGrp = document.getElementById('calcModeGrp');
 const manualModeGrp = document.getElementById('manualModeGrp');
@@ -421,13 +514,9 @@ function handleModeChange() {
     manualModeGrp.style.display = 'flex';
   }
 }
+radios.forEach(radio => { radio.addEventListener('change', handleModeChange); });
 
-radios.forEach(radio => {
-  radio.addEventListener('change', handleModeChange);
-});
-
-
-// ---- ระบบคำนวณปริมาตรแบบ Real-time (สำหรับโหมดคำนวณ) ----
+// ---- ระบบคำนวณปริมาตรแบบ Real-time ----
 const wInput = document.getElementById('widthInput');
 const lInput = document.getElementById('lengthInput');
 const hInput = document.getElementById('heightInput');
@@ -442,20 +531,15 @@ function calculateVolume() {
   volDisplay.value = vol.toFixed(3);
   return vol;
 }
-
 wInput.addEventListener('input', calculateVolume);
 lInput.addEventListener('input', calculateVolume);
 hInput.addEventListener('input', calculateVolume);
-
-calculateVolume(); // คำนวณครั้งแรกเมื่อโหลด
-
+calculateVolume(); 
 
 // ---- โหลดค่าตั้งต้นจาก Firebase ----
 db.ref("/ozone_device/material").once("value", snap => {
   if (snap.exists()) document.getElementById('materialSelect').value = snap.val();
 });
-
-// ดึงค่าปริมาตรล่าสุดจาก Firebase มาใส่เตรียมไว้ในโหมด "กรอกเอง" เสมอ
 db.ref("/ozone_device/volume_m3").once("value", snap => {
   if (snap.exists()) {
     const dbVol = Number(snap.val()).toFixed(3);
@@ -463,22 +547,17 @@ db.ref("/ozone_device/volume_m3").once("value", snap => {
   }
 });
 
-
-// ---- ฟังก์ชันดึงค่าปริมาตรสุดท้าย เพื่อส่งไปบันทึก ----
 function getFinalVolume() {
   const selectedMode = document.querySelector('input[name="volMode"]:checked').value;
-  if (selectedMode === 'calc') {
-    return calculateVolume();
-  } else {
-    return parseFloat(manualVolInput.value) || 0.5;
-  }
+  if (selectedMode === 'calc') return calculateVolume();
+  else return parseFloat(manualVolInput.value) || 0.5;
 }
 
 // ---- บันทึกค่าที่เลือกและปริมาตร กลับไปยังอุปกรณ์ ----
 document.getElementById('saveBtn').addEventListener('click', () => {
   const material = document.getElementById('materialSelect').value;
-  const volume = getFinalVolume(); // ดึงค่าปริมาตรตามโหมดที่ผู้ใช้เลือกอยู่
-  
+  const volume = getFinalVolume();
+
   const msg = document.getElementById('saveMsg');
   const btn = document.getElementById('saveBtn');
   btn.disabled = true;
@@ -487,14 +566,11 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   db.ref("/ozone_device").update({ material, volume_m3: volume })
     .then(() => {
       msg.textContent = "บันทึกแล้ว — อุปกรณ์จะรับค่านี้ภายใน ~10 วินาที";
-      
-      // อัปเดตค่าลงช่อง manual เผื่อไว้ด้วย
       manualVolInput.value = volume.toFixed(3); 
-      
       setTimeout(() => {
         msg.textContent = "";
         btn.disabled = false;
-      }, 3000); // ล้างข้อความหลังผ่านไป 3 วินาที
+      }, 3000); 
     })
     .catch(err => {
       msg.textContent = "บันทึกไม่สำเร็จ: " + err.message;
@@ -502,43 +578,116 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     });
 });
 
-// ---- กราฟความชื้นย้อนหลัง + ตารางประวัติ ----
-let chart;
-function renderChart(labels, values){
-  const ctx = document.getElementById('humidityChart').getContext('2d');
-  if (chart) { chart.data.labels = labels; chart.data.datasets[0].data = values; chart.update(); return; }
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'ความชื้นสัมพัทธ์ (%)',
-        data: values,
-        borderColor: '#2E7D6B',
-        backgroundColor: 'rgba(46,125,107,0.12)',
-        tension: 0.25,
-        fill: true,
-        pointRadius: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { suggestedMin: 30, suggestedMax: 100, ticks: { font: { family: 'monospace' } } },
-        x: { ticks: { font: { family: 'monospace' }, maxRotation: 0, autoSkip: true } }
+
+// =========================================================
+// ---- ระบบ Charts วิเคราะห์ข้อมูล & ตารางประวัติ ----
+// =========================================================
+let lineChart, barChart, doughnutChart;
+
+function renderCharts(lineLabels, lineData, barLabels, barData, doughnutLabels, doughnutData) {
+  
+  // 1. Line Chart (ความชื้น)
+  const ctxLine = document.getElementById('humidityChart').getContext('2d');
+  if (lineChart) { 
+    lineChart.data.labels = lineLabels; 
+    lineChart.data.datasets[0].data = lineData; 
+    lineChart.update(); 
+  } else {
+    lineChart = new Chart(ctxLine, {
+      type: 'line',
+      data: {
+        labels: lineLabels,
+        datasets: [{
+          label: 'ความชื้นสัมพัทธ์ (%)',
+          data: lineData,
+          borderColor: '#2E7D6B',
+          backgroundColor: 'rgba(46,125,107,0.12)',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { suggestedMin: 30, suggestedMax: 100, ticks: { font: { family: 'monospace' } } },
+          x: { ticks: { font: { family: 'monospace' }, maxRotation: 0, autoSkip: true } }
+        }
       }
-    }
-  });
+    });
+  }
+
+  // 2. Bar Chart (ระยะเวลาอบ)
+  const ctxBar = document.getElementById('durationChart').getContext('2d');
+  if (barChart) {
+    barChart.data.labels = barLabels;
+    barChart.data.datasets[0].data = barData;
+    barChart.update();
+  } else {
+    barChart = new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels: barLabels,
+        datasets: [{
+          label: 'เวลาอบ (นาที)',
+          data: barData,
+          backgroundColor: '#C77B2E', // สี Amber
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { font: { family: 'monospace' } } },
+          x: { ticks: { font: { family: 'monospace' }, maxRotation: 45, autoSkip: true } }
+        }
+      }
+    });
+  }
+
+  // 3. Doughnut Chart (สัดส่วนวัสดุ)
+  const ctxDoughnut = document.getElementById('materialChart').getContext('2d');
+  if (doughnutChart) {
+    doughnutChart.data.labels = doughnutLabels;
+    doughnutChart.data.datasets[0].data = doughnutData;
+    doughnutChart.update();
+  } else {
+    doughnutChart = new Chart(ctxDoughnut, {
+      type: 'doughnut',
+      data: {
+        labels: doughnutLabels,
+        datasets: [{
+          data: doughnutData,
+          backgroundColor: [
+            '#2E7D6B', // Ozone Green
+            '#0F2B29', // Ink Dark
+            '#C77B2E', // Amber
+            '#8B9A94'  // Gray
+          ],
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { font: { family: 'Inter' } } }
+        }
+      }
+    });
+  }
 }
 
+// ดึงข้อมูล Logs และนำไปวาดกราฟ / อัปเดตตาราง
 db.ref("/ozone_device/logs").limitToLast(50).on("value", snap => {
   const rows = [];
-  snap.forEach(child => {
-    const v = child.val();
-    rows.push(v);
-  });
+  snap.forEach(child => { rows.push(child.val()); });
 
+  // --- 1. อัปเดตตารางประวัติ (ในแท็บแดชบอร์ด) ---
   const tbody = document.getElementById('logTableBody');
   if (rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="5">ยังไม่มีข้อมูล</td></tr>';
@@ -555,9 +704,27 @@ db.ref("/ozone_device/logs").limitToLast(50).on("value", snap => {
     }).join('');
   }
 
-  const labels = rows.map(v => v.ts ? new Date(v.ts).toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit'}) : '');
-  const values = rows.map(v => v.humidity !== undefined ? Number(v.humidity) : null);
-  renderChart(labels, values);
+  // --- 2. เตรียมข้อมูลสำหรับ Line Chart (ความชื้นย้อนหลัง) ---
+  const lineLabels = rows.map(v => v.ts ? new Date(v.ts).toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit'}) : '');
+  const lineValues = rows.map(v => v.humidity !== undefined ? Number(v.humidity) : null);
+
+  // --- 3. เตรียมข้อมูลสำหรับ Bar Chart (กรองเฉพาะ log ที่มีระยะเวลาการอบ > 0) ---
+  const validRuns = rows.filter(v => v.otime_min !== undefined && Number(v.otime_min) > 0);
+  const barLabels = validRuns.map(v => v.ts ? new Date(v.ts).toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit'}) : '');
+  const barValues = validRuns.map(v => Number(v.otime_min));
+
+  // --- 4. เตรียมข้อมูลสำหรับ Doughnut Chart (นับสัดส่วนประเภทวัสดุ) ---
+  const materialCounts = {};
+  rows.forEach(v => {
+    if(v.material) {
+      materialCounts[v.material] = (materialCounts[v.material] || 0) + 1;
+    }
+  });
+  const doughnutLabels = Object.keys(materialCounts);
+  const doughnutValues = Object.values(materialCounts);
+
+  // สั่งวาดกราฟทั้ง 3 รูป
+  renderCharts(lineLabels, lineValues, barLabels, barValues, doughnutLabels, doughnutValues);
 });
 </script>
 </body>
