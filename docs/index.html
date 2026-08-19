@@ -147,7 +147,6 @@
     text-transform:uppercase;
     color:#6C7C77;
   }
-  /* เพิ่ม input[type=text] และลด min-width ลงเพื่อให้ช่องเรียงกันสวยงาม */
   select, input[type=number], input[type=text]{
     font-family:var(--sans);
     font-size:15px;
@@ -159,6 +158,25 @@
     min-width:100px; 
     max-width:100%;
   }
+  
+  /* แต่งปุ่ม Radio ให้ดูคลีน */
+  .radio-label {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .radio-label input[type="radio"] {
+    margin: 0;
+    accent-color: var(--ozone);
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+  }
+
   button{
     font-family:var(--mono);
     font-size:13px;
@@ -241,18 +259,37 @@
 
   <section class="panel">
     <h2>ตั้งค่าพารามิเตอร์การทดสอบ</h2>
-    <div class="control-row">
+    
+    <!-- 1. เลือกวัสดุ -->
+    <div class="control-row" style="margin-bottom: 20px;">
       <div class="field">
         <label for="materialSelect">ประเภทวัสดุ</label>
-        <select id="materialSelect">
+        <select id="materialSelect" style="min-width: 220px;">
           <option value="Wood">ไม้ (Wood)</option>
           <option value="Plastic">พลาสติก (Plastic)</option>
           <option value="Natural Leather">หนังแท้ (Natural Leather) (l)</option>
           <option value="Synthetic Leather">หนังเทียม (Synthetic Leather)</option>
         </select>
       </div>
-      
-      <!-- ส่วนที่แก้ไขใหม่สำหรับคำนวณปริมาตร -->
+    </div>
+
+    <!-- 2. เลือกโหมดกรอกปริมาตร -->
+    <div class="field" style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--line);">
+      <label>วิธีระบุปริมาตรจำลอง</label>
+      <div style="display: flex; gap: 24px; margin-top: 8px; flex-wrap: wrap;">
+        <label class="radio-label">
+          <input type="radio" name="volMode" value="calc" checked> 
+          คำนวณจาก กว้าง × ยาว × สูง
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="volMode" value="manual"> 
+          ระบุปริมาตร (ลบ.ม.) โดยตรง
+        </label>
+      </div>
+    </div>
+
+    <!-- 3A. กลุ่มคำนวณ กxยxส (แสดงเป็นค่าเริ่มต้น) -->
+    <div class="control-row" id="calcModeGrp" style="margin-bottom: 24px;">
       <div class="field">
         <label for="widthInput">กว้าง (ม.)</label>
         <input type="number" id="widthInput" step="0.01" min="0" value="1.0" style="width: 90px;">
@@ -266,11 +303,21 @@
         <input type="number" id="heightInput" step="0.01" min="0" value="0.5" style="width: 90px;">
       </div>
       <div class="field">
-        <label>ปริมาตร (ลบ.ม.)</label>
-        <input type="text" id="calcVolumeDisplay" readonly style="background:#E4EEEA; color:var(--ozone-deep); font-weight:bold; cursor:not-allowed; width: 100px;">
+        <label>ปริมาตรสุทธิ (ลบ.ม.)</label>
+        <input type="text" id="calcVolumeDisplay" readonly style="background:#E4EEEA; color:var(--ozone-deep); font-weight:bold; cursor:not-allowed; width: 120px;">
       </div>
-      <!-- สิ้นสุดส่วนที่แก้ไขใหม่ -->
+    </div>
 
+    <!-- 3B. กลุ่มกรอกเอง (ซ่อนไว้เป็นค่าเริ่มต้น) -->
+    <div class="control-row" id="manualModeGrp" style="display: none; margin-bottom: 24px;">
+      <div class="field">
+        <label for="manualVolumeInput">ปริมาตร (ลบ.ม.)</label>
+        <input type="number" id="manualVolumeInput" step="0.01" min="0" value="0.5" style="width: 140px; font-weight:bold; color:var(--ozone-deep);">
+      </div>
+    </div>
+
+    <!-- 4. ปุ่มบันทึก -->
+    <div class="control-row">
       <div class="field">
         <button id="saveBtn">บันทึกไปยังอุปกรณ์</button>
       </div>
@@ -303,7 +350,6 @@
 <script>
 /* ---------------------------------------------------------------------
    1) ใส่ค่า Firebase config ของโปรเจกต์คุณตรงนี้
-      (หน้า Firebase Console -> Project settings -> General -> Your apps -> Web app)
 --------------------------------------------------------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyCUHh9Th-fSyFw1yf5JGaKDa1xmI4rgdn4",
@@ -360,49 +406,78 @@ db.ref("/ozone_device/live").on("value", snap => {
 });
 
 
-// ---- ระบบคำนวณปริมาตรแบบ Real-time ----
+// ---- ระบบสลับโหมดการกรอกปริมาตร (Radio Buttons) ----
+const radios = document.getElementsByName('volMode');
+const calcModeGrp = document.getElementById('calcModeGrp');
+const manualModeGrp = document.getElementById('manualModeGrp');
+
+function handleModeChange() {
+  const selectedMode = document.querySelector('input[name="volMode"]:checked').value;
+  if (selectedMode === 'calc') {
+    calcModeGrp.style.display = 'flex';
+    manualModeGrp.style.display = 'none';
+  } else {
+    calcModeGrp.style.display = 'none';
+    manualModeGrp.style.display = 'flex';
+  }
+}
+
+radios.forEach(radio => {
+  radio.addEventListener('change', handleModeChange);
+});
+
+
+// ---- ระบบคำนวณปริมาตรแบบ Real-time (สำหรับโหมดคำนวณ) ----
 const wInput = document.getElementById('widthInput');
 const lInput = document.getElementById('lengthInput');
 const hInput = document.getElementById('heightInput');
 const volDisplay = document.getElementById('calcVolumeDisplay');
+const manualVolInput = document.getElementById('manualVolumeInput');
 
 function calculateVolume() {
   const w = parseFloat(wInput.value) || 0;
   const l = parseFloat(lInput.value) || 0;
   const h = parseFloat(hInput.value) || 0;
   const vol = w * l * h;
-  volDisplay.value = vol.toFixed(3); // แสดงทศนิยม 3 ตำแหน่ง
+  volDisplay.value = vol.toFixed(3);
   return vol;
 }
 
-// ตรวจจับเมื่อมีการพิมพ์หรือเปลี่ยนตัวเลข
 wInput.addEventListener('input', calculateVolume);
 lInput.addEventListener('input', calculateVolume);
 hInput.addEventListener('input', calculateVolume);
 
-// คำนวณครั้งแรกเมื่อโหลดหน้า
-calculateVolume();
+calculateVolume(); // คำนวณครั้งแรกเมื่อโหลด
 
 
-// ---- ตั้งค่า dropdown ให้ตรงกับค่าปัจจุบันบน Firebase ----
+// ---- โหลดค่าตั้งต้นจาก Firebase ----
 db.ref("/ozone_device/material").once("value", snap => {
   if (snap.exists()) document.getElementById('materialSelect').value = snap.val();
 });
 
-// ดึงค่าปริมาตรล่าสุดจาก Firebase มาโชว์ (ในกรณีที่มีค่าบันทึกไว้ก่อนหน้า)
+// ดึงค่าปริมาตรล่าสุดจาก Firebase มาใส่เตรียมไว้ในโหมด "กรอกเอง" เสมอ
 db.ref("/ozone_device/volume_m3").once("value", snap => {
   if (snap.exists()) {
-    volDisplay.value = Number(snap.val()).toFixed(3);
-    // หมายเหตุ: เราไม่สามารถแปลงปริมาตรรวมกลับเป็น กว้าง x ยาว x สูง ได้
-    // จึงจะแค่แสดงค่าปริมาตรล่าสุดไว้ หากผู้ใช้แก้ กว้าง/ยาว/สูง ค่านี้จะถูกคำนวณทับใหม่ทันที
+    const dbVol = Number(snap.val()).toFixed(3);
+    manualVolInput.value = dbVol;
   }
 });
 
 
-// ---- บันทึกค่าที่เลือกและปริมาตรที่คำนวณ กลับไปยังอุปกรณ์ ----
+// ---- ฟังก์ชันดึงค่าปริมาตรสุดท้าย เพื่อส่งไปบันทึก ----
+function getFinalVolume() {
+  const selectedMode = document.querySelector('input[name="volMode"]:checked').value;
+  if (selectedMode === 'calc') {
+    return calculateVolume();
+  } else {
+    return parseFloat(manualVolInput.value) || 0.5;
+  }
+}
+
+// ---- บันทึกค่าที่เลือกและปริมาตร กลับไปยังอุปกรณ์ ----
 document.getElementById('saveBtn').addEventListener('click', () => {
   const material = document.getElementById('materialSelect').value;
-  const volume = calculateVolume(); // ดึงค่าปริมาตรสุทธิที่คำนวณได้ล่าสุด
+  const volume = getFinalVolume(); // ดึงค่าปริมาตรตามโหมดที่ผู้ใช้เลือกอยู่
   
   const msg = document.getElementById('saveMsg');
   const btn = document.getElementById('saveBtn');
@@ -412,7 +487,14 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   db.ref("/ozone_device").update({ material, volume_m3: volume })
     .then(() => {
       msg.textContent = "บันทึกแล้ว — อุปกรณ์จะรับค่านี้ภายใน ~10 วินาที";
-      btn.disabled = false;
+      
+      // อัปเดตค่าลงช่อง manual เผื่อไว้ด้วย
+      manualVolInput.value = volume.toFixed(3); 
+      
+      setTimeout(() => {
+        msg.textContent = "";
+        btn.disabled = false;
+      }, 3000); // ล้างข้อความหลังผ่านไป 3 วินาที
     })
     .catch(err => {
       msg.textContent = "บันทึกไม่สำเร็จ: " + err.message;
@@ -420,7 +502,7 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     });
 });
 
-// ---- กราฟความชื้นย้อนหลัง + ตารางประวัติ (จาก /ozone_device/logs) ----
+// ---- กราฟความชื้นย้อนหลัง + ตารางประวัติ ----
 let chart;
 function renderChart(labels, values){
   const ctx = document.getElementById('humidityChart').getContext('2d');
@@ -457,7 +539,6 @@ db.ref("/ozone_device/logs").limitToLast(50).on("value", snap => {
     rows.push(v);
   });
 
-  // ตาราง (ใหม่สุดอยู่บน)
   const tbody = document.getElementById('logTableBody');
   if (rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="5">ยังไม่มีข้อมูล</td></tr>';
@@ -474,7 +555,6 @@ db.ref("/ozone_device/logs").limitToLast(50).on("value", snap => {
     }).join('');
   }
 
-  // กราฟ (เรียงเก่า -> ใหม่)
   const labels = rows.map(v => v.ts ? new Date(v.ts).toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit'}) : '');
   const values = rows.map(v => v.humidity !== undefined ? Number(v.humidity) : null);
   renderChart(labels, values);
