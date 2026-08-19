@@ -14,9 +14,9 @@
     --paper:#EEF3F1;
     --panel:#FFFFFF;
     --line:#D7E2DE;
-    --ozone:#2E7D6B;      /* หลักของแล็บ: เขียวอมฟ้าแบบสาหร่าย/โอโซน */
+    --ozone:#2E7D6B;
     --ozone-deep:#1B4B41;
-    --amber:#C77B2E;      /* สถานะทำงาน/เตือน */
+    --amber:#C77B2E;
     --mono:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
     --serif:'Source Serif 4','Georgia',serif;
     --sans:'Inter','Helvetica Neue',Arial,sans-serif;
@@ -147,7 +147,8 @@
     text-transform:uppercase;
     color:#6C7C77;
   }
-  select, input[type=number]{
+  /* เพิ่ม input[type=text] และลด min-width ลงเพื่อให้ช่องเรียงกันสวยงาม */
+  select, input[type=number], input[type=text]{
     font-family:var(--sans);
     font-size:15px;
     padding:9px 12px;
@@ -155,7 +156,8 @@
     border-radius:2px;
     background:var(--paper);
     color:var(--ink);
-    min-width:160px;
+    min-width:100px; 
+    max-width:100%;
   }
   button{
     font-family:var(--mono);
@@ -238,21 +240,37 @@
   </div>
 
   <section class="panel">
-    <h2>เลือกวัสดุทดสอบ</h2>
+    <h2>ตั้งค่าพารามิเตอร์การทดสอบ</h2>
     <div class="control-row">
       <div class="field">
         <label for="materialSelect">ประเภทวัสดุ</label>
         <select id="materialSelect">
           <option value="Wood">ไม้ (Wood)</option>
           <option value="Plastic">พลาสติก (Plastic)</option>
-          <option value="Metal">โลหะ (Metal)</option>
-          <option value="Glass">กระจก (Glass)</option>
+          <option value="Natural Leather">หนังแท้ (Natural Leather) (l)</option>
+          <option value="Synthetic Leather">หนังเทียม (Synthetic Leather)</option>
         </select>
       </div>
+      
+      <!-- ส่วนที่แก้ไขใหม่สำหรับคำนวณปริมาตร -->
       <div class="field">
-        <label for="volumeInput">ปริมาตรกล่องจำลอง (ลบ.ม.)</label>
-        <input type="number" id="volumeInput" step="0.1" min="0.1" value="0.5">
+        <label for="widthInput">กว้าง (ม.)</label>
+        <input type="number" id="widthInput" step="0.01" min="0" value="1.0" style="width: 90px;">
       </div>
+      <div class="field">
+        <label for="lengthInput">ยาว (ม.)</label>
+        <input type="number" id="lengthInput" step="0.01" min="0" value="1.0" style="width: 90px;">
+      </div>
+      <div class="field">
+        <label for="heightInput">สูง (ม.)</label>
+        <input type="number" id="heightInput" step="0.01" min="0" value="0.5" style="width: 90px;">
+      </div>
+      <div class="field">
+        <label>ปริมาตร (ลบ.ม.)</label>
+        <input type="text" id="calcVolumeDisplay" readonly style="background:#E4EEEA; color:var(--ozone-deep); font-weight:bold; cursor:not-allowed; width: 100px;">
+      </div>
+      <!-- สิ้นสุดส่วนที่แก้ไขใหม่ -->
+
       <div class="field">
         <button id="saveBtn">บันทึกไปยังอุปกรณ์</button>
       </div>
@@ -341,18 +359,51 @@ db.ref("/ozone_device/live").on("value", snap => {
   statusEl.classList.toggle('active', ACTIVE_PHASES.includes(d.status));
 });
 
+
+// ---- ระบบคำนวณปริมาตรแบบ Real-time ----
+const wInput = document.getElementById('widthInput');
+const lInput = document.getElementById('lengthInput');
+const hInput = document.getElementById('heightInput');
+const volDisplay = document.getElementById('calcVolumeDisplay');
+
+function calculateVolume() {
+  const w = parseFloat(wInput.value) || 0;
+  const l = parseFloat(lInput.value) || 0;
+  const h = parseFloat(hInput.value) || 0;
+  const vol = w * l * h;
+  volDisplay.value = vol.toFixed(3); // แสดงทศนิยม 3 ตำแหน่ง
+  return vol;
+}
+
+// ตรวจจับเมื่อมีการพิมพ์หรือเปลี่ยนตัวเลข
+wInput.addEventListener('input', calculateVolume);
+lInput.addEventListener('input', calculateVolume);
+hInput.addEventListener('input', calculateVolume);
+
+// คำนวณครั้งแรกเมื่อโหลดหน้า
+calculateVolume();
+
+
 // ---- ตั้งค่า dropdown ให้ตรงกับค่าปัจจุบันบน Firebase ----
 db.ref("/ozone_device/material").once("value", snap => {
   if (snap.exists()) document.getElementById('materialSelect').value = snap.val();
 });
+
+// ดึงค่าปริมาตรล่าสุดจาก Firebase มาโชว์ (ในกรณีที่มีค่าบันทึกไว้ก่อนหน้า)
 db.ref("/ozone_device/volume_m3").once("value", snap => {
-  if (snap.exists()) document.getElementById('volumeInput').value = snap.val();
+  if (snap.exists()) {
+    volDisplay.value = Number(snap.val()).toFixed(3);
+    // หมายเหตุ: เราไม่สามารถแปลงปริมาตรรวมกลับเป็น กว้าง x ยาว x สูง ได้
+    // จึงจะแค่แสดงค่าปริมาตรล่าสุดไว้ หากผู้ใช้แก้ กว้าง/ยาว/สูง ค่านี้จะถูกคำนวณทับใหม่ทันที
+  }
 });
 
-// ---- บันทึกค่าที่เลือกกลับไปยังอุปกรณ์ ----
+
+// ---- บันทึกค่าที่เลือกและปริมาตรที่คำนวณ กลับไปยังอุปกรณ์ ----
 document.getElementById('saveBtn').addEventListener('click', () => {
   const material = document.getElementById('materialSelect').value;
-  const volume = parseFloat(document.getElementById('volumeInput').value) || 0.5;
+  const volume = calculateVolume(); // ดึงค่าปริมาตรสุทธิที่คำนวณได้ล่าสุด
+  
   const msg = document.getElementById('saveMsg');
   const btn = document.getElementById('saveBtn');
   btn.disabled = true;
