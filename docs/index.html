@@ -467,6 +467,13 @@ function switchTab(tabId) {
   // เพิ่ม class active ให้แท็บที่ถูกคลิก
   document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
   document.getElementById(tabId).classList.add('active');
+
+  // 👇 --- เพิ่มโค้ดส่วนนี้เข้าไป เพื่อบังคับให้กราฟแสดงผลเมื่อสลับแท็บ --- 👇
+  if (tabId === 'tab-analytics') {
+    if (typeof lineChart !== 'undefined' && lineChart) lineChart.resize();
+    if (typeof barChart !== 'undefined' && barChart) barChart.resize();
+    if (typeof doughnutChart !== 'undefined' && doughnutChart) doughnutChart.resize();
+  }
 }
 
 // ---- แสดงสถานะการเชื่อมต่อ ----
